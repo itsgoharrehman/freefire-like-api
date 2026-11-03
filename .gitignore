@@ -1,0 +1,23 @@
+# Bytecode & Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment & Sensitive Keys
+.env
+.env.*
+!.env.example
+
+# Guest Account Data & Token Pools
+data/
+*.backup*
+
+# Bitwarden & Vault Exports
+bitwarden_export*.json
+*.vault.json
+
+# Logs & Temporary Files
+*.log
+.vscode/
+.idea/
+scratch/
