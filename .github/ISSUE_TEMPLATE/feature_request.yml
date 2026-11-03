@@ -1,0 +1,23 @@
+name: Feature Request
+description: Propose a new endpoint, token caching algorithm, or dispatcher capability
+title: "[FEATURE]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Propose a new feature, caching strategy, or dispatcher enhancement.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: Is this feature related to a limitation or concurrency bottleneck?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Clear description of the proposed feature and implementation approach.
+    validations:
+      required: true
