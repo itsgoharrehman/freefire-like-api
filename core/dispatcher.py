@@ -1,10 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-core/dispatcher.py - High-Throughput Free Fire Like Dispatcher
-Authored for Gohar Rehman | Free Fire Like Engine
-Uses unified sender pool of 1000+ Level 20+ accounts to dispatch likes in native speed.
-Zero fake metrics - strictly reports verified Garena like increments.
-"""
+"""Like dispatcher and player profile queries."""
 import time
 import asyncio
 import aiohttp
@@ -23,7 +18,7 @@ from core.protocol import (
     parse_profile_response
 )
 from core.tokens import token_manager
-from core.telegram import send_telegram_report, format_like_delivery_report
+from core.notifier import notifier, format_like_delivery_report
 
 class LikeDispatcher:
     def __init__(self):
@@ -171,7 +166,7 @@ class LikeDispatcher:
         duration = time.time() - start_time
 
         # 6. Await Telegram report delivery
-        await send_telegram_report(
+        await notifier.send_report(
             format_like_delivery_report(
                 name=nickname,
                 uid=target_uid,

@@ -1,8 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-core/protocol.py - Protobuf Payload Construction & Parsing Engine
-Authored for Gohar Rehman | High-Performance Like Engine
-"""
+"""Garena protobuf protocol builders and decoders."""
 import sys
 import os
 from typing import Optional, Dict, Any

@@ -1,8 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-core/crypto.py - AES-128-CBC Production Encryption Engine for Like Requests
-Authored for Gohar Rehman | High-Performance Like Engine
-"""
+"""AES CBC cryptography routines."""
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 

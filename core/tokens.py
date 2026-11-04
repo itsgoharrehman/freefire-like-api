@@ -1,9 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-core/tokens.py - Ultra-Fast Unified Token Pool & aiohttp Account Authenticator
-Authored for Gohar Rehman | Free Fire Like Engine
-Completes full 769 account re-authentication in ~12 seconds.
-"""
+"""Token pool manager and Garena account authentication."""
 import os
 import json
 import time

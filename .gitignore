@@ -8,13 +8,13 @@ __pycache__/
 .env.*
 !.env.example
 
-# Guest Account Data & Token Pools
+# Operational Data, Accounts & Vaults
 data/
-*.backup*
-
-# Bitwarden & Vault Exports
-bitwarden_export*.json
-*.vault.json
+scripts/
+*.txt
+*.csv
+*.json
+!requirements.txt
 
 # Logs & Temporary Files
 *.log
