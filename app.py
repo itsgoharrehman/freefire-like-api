@@ -48,8 +48,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="GOHAR REHMAN | FREE FIRE LIKE API",
-    description="High-Speed Private Free Fire Like Engine with 1538+ Level 8+ Sender Accounts",
-    version="2.2.0",
+    description="High-Speed Private Free Fire Like Engine with 1000+ Level 20+ Sender Accounts",
+    version="2.3.0",
     lifespan=lifespan
 )
 
@@ -66,7 +66,7 @@ async def root():
 async def give_likes(
     uid: int = Query(..., description="Target Free Fire Player UID"),
     region: str = Query("GLOBAL", description="Target Player Region (PK, BD, IND, US, BR, GLOBAL)"),
-    count: int = Query(1538, description="Number of likes to dispatch (up to full pool)", ge=1, le=2000),
+    count: int = Query(1000, description="Number of likes to dispatch (up to full pool)", ge=1, le=1000),
     auth: str = Depends(verify_api_key)
 ):
     res = await like_dispatcher.dispatch_likes(target_uid=uid, region=region.upper(), requested_count=count)
@@ -132,7 +132,7 @@ async def legacy_refresh(
 async def legacy_like(
     uid: int = Query(...),
     region: str = Query("GLOBAL"),
-    count: int = Query(1538),
+    count: int = Query(1000),
     api_key: Optional[str] = Query(None),
     key: Optional[str] = Query(None)
 ):

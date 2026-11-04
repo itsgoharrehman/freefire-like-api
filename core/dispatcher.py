@@ -2,7 +2,7 @@
 """
 core/dispatcher.py - High-Throughput Free Fire Like Dispatcher
 Authored for Gohar Rehman | Free Fire Like Engine
-Uses unified sender pool to dispatch 766+ likes to all 14 regions in native speed.
+Uses unified sender pool of 1000+ Level 20+ accounts to dispatch likes in native speed.
 Zero fake metrics - strictly reports verified Garena like increments.
 """
 import time
@@ -30,7 +30,7 @@ class LikeDispatcher:
         self.session: Optional[aiohttp.ClientSession] = None
 
     async def init_session(self) -> None:
-        """Initializes persistent warm connection pool with TCP keep-alive."""
+        """Initializes persistent warm connection pool with TCP keep-alive for like bursts."""
         if self.session is None or self.session.closed:
             connector = aiohttp.TCPConnector(
                 limit=250,
@@ -51,14 +51,12 @@ class LikeDispatcher:
         reg = region.upper() if region else "GLOBAL"
         return GATEWAY_URLS.get(reg, ACTIVE_GATEWAY)
 
-    async def query_player_profile(self, target_uid: int, region: str) -> Optional[Dict[str, Any]]:
-        """Queries authoritative GetPlayerPersonalShow for live player stats."""
-        await self.init_session()
+    async def query_player_profile(self, target_uid: int, region: str, retries: int = 2) -> Optional[Dict[str, Any]]:
+        """Queries authoritative GetPlayerPersonalShow with isolated session & retry to prevent pool contamination."""
         base_url = self.get_base_url(region)
         url = f"{base_url}/GetPlayerPersonalShow"
         enc_payload = create_profile_payload(target_uid)
 
-        # Retrieve active token from unified pool
         tokens = token_manager.get_tokens(1)
         auth_token = tokens[0] if tokens else ""
 
@@ -66,16 +64,23 @@ class LikeDispatcher:
         if auth_token:
             headers["Authorization"] = f"Bearer {auth_token}"
 
-        try:
-            async with self.session.post(url, data=enc_payload, headers=headers) as resp:
-                if resp.status == 200:
-                    data = await resp.read()
-                    return parse_profile_response(data)
-                else:
-                    data = await resp.read()
-                    print(f"[!] Profile query non-200 ({resp.status}): {data[:80]}")
-        except Exception as e:
-            print(f"[!] Profile query exception: {type(e).__name__}: {e}")
+        for attempt in range(retries):
+            try:
+                timeout = aiohttp.ClientTimeout(total=5.0)
+                async with aiohttp.ClientSession(timeout=timeout) as prof_session:
+                    async with prof_session.post(url, data=enc_payload, headers=headers) as resp:
+                        if resp.status == 200:
+                            data = await resp.read()
+                            parsed = parse_profile_response(data)
+                            if parsed:
+                                return parsed
+                        else:
+                            data = await resp.read()
+                            print(f"[!] Profile query non-200 ({resp.status}, attempt {attempt+1}): {data[:80]}")
+            except Exception as e:
+                print(f"[!] Profile query exception (attempt {attempt+1}): {type(e).__name__}: {e}")
+            if attempt < retries - 1:
+                await asyncio.sleep(0.5)
         return None
 
     async def send_single_like(self, url: str, enc_payload: bytes, token: str) -> bool:
@@ -91,7 +96,7 @@ class LikeDispatcher:
     async def dispatch_likes(self, target_uid: int, region: str, requested_count: int) -> Dict[str, Any]:
         """
         Dispatches likes from unified global sender pool to target UID in target region.
-        Ultra-fast pipelined execution in bursts of 80 with 15ms micro-staggers.
+        Ultra-fast pipelined execution in bursts of 40 with 35ms micro-staggers.
         """
         start_time = time.time()
         await self.init_session()
@@ -102,7 +107,6 @@ class LikeDispatcher:
         # 1. Query initial profile likes
         before_profile = await self.query_player_profile(target_uid, target_reg)
         if not before_profile:
-            # Try once more with GLOBAL fallback before giving up
             if target_reg != "GLOBAL":
                 before_profile = await self.query_player_profile(target_uid, "GLOBAL")
 
@@ -118,7 +122,7 @@ class LikeDispatcher:
         level = before_profile["level"]
         resolved_region = before_profile["region"]
 
-        # 2. Slice requested sender tokens from unified pool
+        # 2. Slice requested sender tokens from unified pool (capped to available)
         tokens = token_manager.get_tokens(requested_count)
         if not tokens:
             return {
@@ -130,7 +134,7 @@ class LikeDispatcher:
         # 3. Pre-build encrypted like payload
         enc_payload = create_like_payload(target_uid, resolved_region)
 
-        # 4. Ultra-fast micro-batch execution (bursts of 80 with 15ms micro-stagger)
+        # 4. Ultra-fast micro-batch execution (bursts of 40 with 35ms micro-stagger)
         chunk_size = 40
         stagger_delay = 0.035
         all_results = []
@@ -145,8 +149,16 @@ class LikeDispatcher:
         dispatched_success = sum(1 for r in all_results if r is True)
 
         # 5. Settling delay (allows Garena edge servers to commit) & query final profile
-        await asyncio.sleep(1.0)
+        await asyncio.sleep(2.5)
         after_profile = await self.query_player_profile(target_uid, resolved_region)
+        
+        # Secondary probe if database commit lagged
+        if after_profile and after_profile["likes"] == likes_before:
+            await asyncio.sleep(1.5)
+            secondary = await self.query_player_profile(target_uid, resolved_region)
+            if secondary:
+                after_profile = secondary
+
         if after_profile:
             likes_after = after_profile["likes"]
             likes_added = max(0, likes_after - likes_before)
