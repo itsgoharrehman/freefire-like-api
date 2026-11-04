@@ -47,6 +47,19 @@ def build_proto(fields: dict) -> bytes:
             parts.append(encode_varint((k << 3) | 2) + encode_varint(len(ev)) + ev)
     return b"".join(parts)
 
+def extract_jwt_exp(token: str) -> int:
+    """Safely extracts expiration timestamp from JWT payload without verification."""
+    try:
+        parts = token.split(".")
+        if len(parts) >= 2:
+            import base64
+            p = parts[1] + "=" * (-len(parts[1]) % 4)
+            data = json.loads(base64.urlsafe_b64decode(p))
+            return int(data.get("exp", 0))
+    except Exception:
+        pass
+    return 0
+
 def parse_majorlogin_jwt(data: bytes) -> dict:
     for off in [0, 64] + list(range(128)):
         if off >= len(data):
@@ -218,15 +231,21 @@ class TokenManager:
                 print(f"[!] Warning loading accounts.json: {e}")
 
     def get_tokens(self, count: int = 0) -> List[str]:
-        """Retrieves active tokens from the global unified sender pool."""
-        active = [item["token"] for item in self.tokens if item.get("status") != "BANNED"]
-        if not active and self.tokens:
-            active = [item["token"] for item in self.tokens]
+        """Retrieves active, non-expired tokens from the global unified sender pool."""
+        now = time.time()
+        active = [
+            item["token"] for item in self.tokens 
+            if item.get("status") != "BANNED" and item.get("exp", extract_jwt_exp(item.get("token", ""))) > now + 60
+        ]
         return active[:count] if count > 0 else active
 
     def get_stats(self) -> Dict[str, Any]:
         """Returns real-time token pool metrics."""
-        active_cnt = sum(1 for item in self.tokens if item.get("status") != "BANNED")
+        now = time.time()
+        active_cnt = sum(
+            1 for item in self.tokens 
+            if item.get("status") != "BANNED" and item.get("exp", extract_jwt_exp(item.get("token", ""))) > now + 60
+        )
         return {
             "total_tokens": len(self.tokens),
             "active_tokens": active_cnt,
@@ -269,7 +288,11 @@ class TokenManager:
         timeout = aiohttp.ClientTimeout(total=12.0)
         sem = asyncio.Semaphore(concurrency)
 
-        token_map = {str(t["uid"]).strip(): t for t in self.tokens}
+        now = time.time()
+        token_map = {
+            str(t["uid"]).strip(): t for t in self.tokens 
+            if t.get("exp", extract_jwt_exp(t.get("token", ""))) > now + 60
+        }
 
         async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
             async def _worker(acc):
@@ -307,7 +330,7 @@ class TokenManager:
                         ml_hdrs = {
                             'User-Agent': 'UnityPlayer/2018.4.12f1 (UnityWebRequest/1.0, libcurl/8.5.0-DEV)',
                             'Connection': 'Keep-Alive', 'Accept-Encoding': 'gzip',
-                            'Content-Type': 'application/x-www-form-urlencoded', 'Expect': '100-continue',
+                            'Content-Type': 'application/x-www-form-urlencoded',
                             'X-Unity-Version': '2018.4.12f1', 'X-GA-SV': '1789535859', 'X-GA': 'v1 1',
                             'ReleaseVersion': release_v, 'X-Forwarded-For': "103.108.140.15"
                         }
@@ -318,7 +341,7 @@ class TokenManager:
                             parsed = parse_majorlogin_jwt(content)
                             tok = parsed.get("token")
                             if tok:
-                                return {"uid": uid, "token": tok, "status": "ACTIVE"}
+                                return {"uid": uid, "token": tok, "status": "ACTIVE", "exp": extract_jwt_exp(tok)}
                     except Exception:
                         pass
                     return None

@@ -66,7 +66,7 @@ async def root():
 async def give_likes(
     uid: int = Query(..., description="Target Free Fire Player UID"),
     region: str = Query("GLOBAL", description="Target Player Region (PK, BD, IND, US, BR, GLOBAL)"),
-    count: int = Query(1000, description="Number of likes to dispatch (up to full pool)", ge=1, le=1000),
+    count: int = Query(1250, description="Number of likes to dispatch (up to full pool)", ge=1, le=2000),
     auth: str = Depends(verify_api_key)
 ):
     res = await like_dispatcher.dispatch_likes(target_uid=uid, region=region.upper(), requested_count=count)
@@ -132,7 +132,7 @@ async def legacy_refresh(
 async def legacy_like(
     uid: int = Query(...),
     region: str = Query("GLOBAL"),
-    count: int = Query(1000),
+    count: int = Query(1250),
     api_key: Optional[str] = Query(None),
     key: Optional[str] = Query(None)
 ):
